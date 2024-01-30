@@ -55,68 +55,31 @@ typedef enum{
     FONT_SIZE_F8X16 = 1
 }font_size;
 
-
-// class JM_SSD1306{
-    
-    
-//     public:
-//         JM_SSD1306(uint8_t ssd1306_slave_addr); 
-//         void Init(void);
-//         esp_err_t OLED_WR_Byte(uint8_t data, uint8_t cmd_);
-//         void OLED_Set_Pos(uint8_t x, uint8_t y);
-//         void OLED_ShowChar(uint8_t x, uint8_t y, uint8_t chr, uint8_t Char_Size);
-//         void Clear(void);
-//         void print(uint8_t start_x, uint8_t start_y, const char* display_data, uint8_t font_size);
-//         void oled_draw_xaxis(uint8_t x, uint8_t y);
-//         void oled_draw_yaxis(uint8_t x, uint8_t y);
-//         void oled_draw_icon(uint8_t x, uint8_t y);
-//         void oled_draw_logo(uint8_t x, uint8_t y);
-
-//         uint8_t SSD1306_SLAVE_ADDR;
-// };
-
-
 typedef struct{
 
-    int SDA_PIN;
-    int SCL_PIN;
+    int sda_io_num;
+    int scl_io_num;
     uint8_t ssd1306_slave_addr;
     
 }SSD1306_t;
-
 typedef struct{
-    SSD1306_t *(*SSD1306)(int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
-    void (*set_pos)(SSD1306_t *self, uint8_t x, uint8_t y);
-    void (*print)(SSD1306_t *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
-    void (*clear)(SSD1306_t *self);
+
+    SSD1306_t *ssd1306;
+    //Declare function pointer
+    // void *(*init_OLED)(int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
+    void (*set_pos)(void *self, uint8_t x, uint8_t y);
+    void (*print)(void *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
+    void (*clear)(void *self);
+    void (*drawLogo)(void *self, uint8_t x, uint8_t y);
+
 }OLED;
 
-SSD1306_t *SSD1306(int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
-void set_pos(SSD1306_t *self, uint8_t x, uint8_t y);
-void print(SSD1306_t *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
-void clear(SSD1306_t *self);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
+// static void set_pos(void *self, uint8_t x, uint8_t y);
+// static void print(void *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
+// static void clear(void *self);
+// static void esp_test(void);
+// static void displayLogo(void);
+// static void drawLogo(void);
 #endif  //_JM_ssd1306_H_

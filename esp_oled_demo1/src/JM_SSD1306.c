@@ -1,4 +1,4 @@
-#include "JM_ssd1306.h"
+#include "JM_SSD1306.h"
 #include <driver/i2c.h>
 
 // OLED 6*8字库
@@ -283,30 +283,12 @@ const unsigned char temperature_icon[] = {
 };
 
 
-static esp_err_t i2c_master_init(int sda_io_num, int scl_io_num){
 
-    int i2c_master_port = I2C_MASTER_NUM;
-
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = sda_io_num,
-        .scl_io_num = scl_io_num,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master = {
-          .clk_speed = I2C_MASTER_FREQ_HZ,
-        }
-    };
-
-    i2c_param_config(i2c_master_port, &conf);
-
-    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-}
 
 static esp_err_t OLED_WR_Byte(SSD1306_t *self, uint8_t data, uint8_t isCmd){
     
     if(self == NULL){
-        return -1;
+        return ESP_FAIL;
     }
     uint8_t SSD1306_SLAVE_ADDR = self->ssd1306_slave_addr;
 
@@ -325,8 +307,10 @@ static esp_err_t OLED_WR_Byte(SSD1306_t *self, uint8_t data, uint8_t isCmd){
 }
 
 
-void set_pos(SSD1306_t *self, uint8_t x, uint8_t y){
+static void set_pos(void *_self, uint8_t x, uint8_t y){
     
+    SSD1306_t *self = (SSD1306_t *)_self;
+
     if(self == NULL){
         return;
     }
@@ -335,7 +319,9 @@ void set_pos(SSD1306_t *self, uint8_t x, uint8_t y){
     OLED_WR_Byte(self, (x & 0x0f), CMD_MODE);
 }
 
-void clear(SSD1306_t *self){
+static void clear(void *_self){
+
+    SSD1306_t *self = (SSD1306_t *)_self;
 
     uint8_t i, n;
     for (i = 0; i < 8; i++)
@@ -375,7 +361,9 @@ static void showChar(SSD1306_t *self, uint8_t x, uint8_t y, uint8_t chr, uint8_t
     }
 }
 
-void print(SSD1306_t *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size){
+static void print(void *_self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size){
+
+    SSD1306_t *self = (SSD1306_t *)_self;
 
     if((self == NULL) || (msg == NULL)){
         return;
@@ -397,6 +385,23 @@ void print(SSD1306_t *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_
         (msg)++;
     }
 }
+
+static void drawLogo(void *_self, uint8_t x, uint8_t y){
+
+    SSD1306_t *self = (SSD1306_t *)_self;
+
+    for(int i = 0; i < 8; ++i){
+        set_pos(self, x, y + i);
+        for(int j = 0; j < 128; ++j){
+
+            OLED_WR_Byte(self, JM_LOGO[128 * i + j], DATA_MODE);
+
+        }
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+    }
+    
+}
+
 static void ssd_init(SSD1306_t *self){
 
     OLED_WR_Byte(self, SSD1306_DISPLAYOFF, CMD_MODE);          ///< Set Display ON
@@ -421,29 +426,49 @@ static void ssd_init(SSD1306_t *self){
     OLED_WR_Byte(self, 0xF1, CMD_MODE); 
     OLED_WR_Byte(self, SSD1306_SETVCOMDETECT, CMD_MODE);       ///< This command adjusts the VCOMH regulator output.
     OLED_WR_Byte(self, SSD1306_SETSTARTLINE, CMD_MODE);                        ///< Set Display Start Line 
-    OLED_WR_Byte(self, SSD1306_DISPLAYON, CMD_MODE);                        ///< Display On
+    OLED_WR_Byte(self, SSD1306_DISPLAYON, CMD_MODE);  
+                          ///< Display On
 }
 
 
-SSD1306_t* SSD1306(int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
+int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
 
     SSD1306_t *ssd1306 = (SSD1306_t*)malloc(sizeof(SSD1306_t));
-    if(SSD1306 == NULL){
-        return NULL;
+    
+    
+    if(ssd1306 == NULL){
+        return ESP_FAIL;
     }
-    ssd1306->SDA_PIN = SDA_PIN;
-    ssd1306->SCL_PIN = SCL_PIN;
+
+    ssd1306->sda_io_num = SDA_PIN;
+    ssd1306->scl_io_num= SCL_PIN;
     ssd1306->ssd1306_slave_addr = ssd1306_slave_addr;
+    printf("address ssd1306 %p \r\n", ssd1306);
+    //Set up the PINs for SDA and SCL, then enable the I2C interface
+    
 
-    while(i2c_master_init(SDA_PIN, SCL_PIN) != ESP_OK){
+    vTaskDelay(100);
 
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+    //initialize OLED struct 
+    // OLED* oled = (OLED*)malloc(sizeof(OLED));
+    self->ssd1306 = ssd1306;
+    self->set_pos = set_pos;
+    self->print = print;
+    self->clear = clear;
+    self->drawLogo = drawLogo;
 
-    }
+    ssd_init(self->ssd1306);
 
-    return ssd1306;
+    return ESP_OK;
 
 }
+
+static void esp_test(){
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    printf("HELLO WORLD\r\n");
+}
+
+
 
 
 
