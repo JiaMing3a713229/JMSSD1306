@@ -290,7 +290,7 @@ static esp_err_t OLED_WR_Byte(SSD1306_t *self, uint8_t data, uint8_t isCmd){
     if(self == NULL){
         return ESP_FAIL;
     }
-    uint8_t SSD1306_SLAVE_ADDR = self->ssd1306_slave_addr;
+    uint8_t SSD1306_SLAVE_ADDR = self -> ssd1306_slave_addr;
 
     int ret;
     uint8_t cam_data = (isCmd == 1) ? (uint8_t)(0x40) : (uint8_t)(0x00);    //0x40 write data GGDRAM ， 0x00 command data to command register
@@ -321,7 +321,8 @@ static void set_pos(void *_self, uint8_t x, uint8_t y){
 
 static void clear(void *_self){
 
-    SSD1306_t *self = (SSD1306_t *)_self;
+    OLED *oled = (OLED *)_self;
+    SSD1306_t *self = oled->ssd1306;
 
     uint8_t i, n;
     for (i = 0; i < 8; i++)
@@ -363,7 +364,8 @@ static void showChar(SSD1306_t *self, uint8_t x, uint8_t y, uint8_t chr, uint8_t
 
 static void print(void *_self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size){
 
-    SSD1306_t *self = (SSD1306_t *)_self;
+    OLED *oled = (OLED *)_self;
+    SSD1306_t *self = oled->ssd1306;
 
     if((self == NULL) || (msg == NULL)){
         return;
@@ -386,10 +388,13 @@ static void print(void *_self, uint8_t x, uint8_t y, const char* msg, uint8_t fo
     }
 }
 
-static void drawLogo(void *_self, uint8_t x, uint8_t y){
+static void drawLogo(void *_self){
 
-    SSD1306_t *self = (SSD1306_t *)_self;
-
+    OLED *oled = (OLED *)_self;
+    SSD1306_t *self = oled->ssd1306;
+    uint8_t x = 0;
+    uint8_t y = 0;
+    
     for(int i = 0; i < 8; ++i){
         set_pos(self, x, y + i);
         for(int j = 0; j < 128; ++j){
@@ -443,7 +448,7 @@ int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
     ssd1306->sda_io_num = SDA_PIN;
     ssd1306->scl_io_num= SCL_PIN;
     ssd1306->ssd1306_slave_addr = ssd1306_slave_addr;
-    printf("address ssd1306 %p \r\n", ssd1306);
+    // printf("address ssd1306 %p \r\n", ssd1306);
     //Set up the PINs for SDA and SCL, then enable the I2C interface
     
 
@@ -457,7 +462,7 @@ int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
     self->clear = clear;
     self->drawLogo = drawLogo;
 
-    ssd_init(self->ssd1306);
+    ssd_init(self -> ssd1306);
 
     return ESP_OK;
 

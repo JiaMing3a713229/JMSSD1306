@@ -70,7 +70,7 @@ typedef struct{
     void (*set_pos)(void *self, uint8_t x, uint8_t y);
     void (*print)(void *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
     void (*clear)(void *self);
-    void (*drawLogo)(void *self, uint8_t x, uint8_t y);
+    void (*drawLogo)(void *self);
 
 }OLED;
 
