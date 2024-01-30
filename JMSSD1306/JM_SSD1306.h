@@ -72,9 +72,9 @@ typedef struct{
     void (*clear)(void *self);
     void (*drawLogo)(void *self);
     void (*close)(void *self);
+    void (*display_info)(void *self);
 
 }OLED;
-
 
 int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
 // static void set_pos(void *self, uint8_t x, uint8_t y);

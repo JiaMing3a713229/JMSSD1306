@@ -413,6 +413,37 @@ static void close(void *self){
     free(oled);
 }
 
+static void display_info(void *_self){
+
+    char buffer[50];
+    OLED *oled = (OLED *)_self;
+    print(oled, 0, 0, "(0,0)", 0);
+    print(oled, 0, 1, "(0,1)", 0);
+    print(oled, 0, 2, "(0,2)", 0);
+    print(oled, 0, 3, "(0,3)", 0);
+    print(oled, 0, 4, "(0,4)", 0);
+    print(oled, 0, 5, "(0,5)", 0);
+    print(oled, 0, 6, "(0,6)", 0);
+    print(oled, 0, 7, "(0,7)", 0);
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    
+    clear(oled);
+    
+    SSD1306_t *self = oled->ssd1306;
+    for(uint8_t i = 0; i < 128; ++i){
+
+        set_pos(self, i, 2);
+        OLED_WR_Byte(self, 0xff, DATA_MODE);
+        // print(oled, i, 1, "|", 0);
+        snprintf(buffer, sizeof(buffer), " position: (%d, 2)", i);
+        print(oled, 3, 5, buffer, 0);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+        
+    }
+    
+
+}
+
 static void ssd_init(SSD1306_t *self){
 
     OLED_WR_Byte(self, SSD1306_DISPLAYOFF, CMD_MODE);          ///< Set Display ON
@@ -469,6 +500,7 @@ int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
     self->clear = clear;
     self->drawLogo = drawLogo;
     self->close = close;
+    self->display_info = display_info;
 
     ssd_init(self -> ssd1306);
 
