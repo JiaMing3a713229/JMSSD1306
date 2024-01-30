@@ -1,0 +1,18 @@
+#######################################
+# Syntax Coloring Map For DFRobot_SHT20
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+OLED	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+set_pos	KEYWORD2
+print	KEYWORD2
+clear	KEYWORD2
+drawLogo	KEYWORD2
