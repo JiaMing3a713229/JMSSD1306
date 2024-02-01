@@ -53,6 +53,9 @@ void displayTask(void *pvParameter){
   oled.clear(&oled);
   int count = 0;
   char buffer[50];
+  oled.display_info(&oled);
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
+  oled.clear(&oled);
 
   while(1){
 
