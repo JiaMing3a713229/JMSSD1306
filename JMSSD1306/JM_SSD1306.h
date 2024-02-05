@@ -50,37 +50,35 @@
 #define I2C_MASTER_TX_BUF_DISABLE   0                   /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE   0                   /*!< I2C master doesn't need buffer */
 
+
 typedef enum{
     FONT_SIZE_F6x8 = 0,
     FONT_SIZE_F8X16 = 1
 }font_size;
 
-typedef struct{
+struct SSD1306{
 
     int sda_io_num;
     int scl_io_num;
-    uint8_t ssd1306_slave_addr;
+    uint8_t slave_addr;
     
-}SSD1306_t;
-typedef struct{
+};
 
-    SSD1306_t *ssd1306;
+struct OLED{
+    
+    struct SSD1306 *ssd1306;
+    
+
     //Declare function pointer
-    // void *(*init_OLED)(int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
-    void (*set_pos)(void *self, uint8_t x, uint8_t y);
-    void (*print)(void *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
-    void (*clear)(void *self);
-    void (*drawLogo)(void *self);
-    void (*close)(void *self);
-    void (*display_info)(void *self);
+    void (*print)(struct OLED *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
+    void (*clear)(struct OLED *self);
+    void (*display_info)(struct OLED *self);
+    void (*close)(struct OLED *self);
 
-}OLED;
+};
 
-int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
-// static void set_pos(void *self, uint8_t x, uint8_t y);
-// static void print(void *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size);
-// static void clear(void *self);
-// static void esp_test(void);
-// static void displayLogo(void);
-// static void drawLogo(void);
+
+
+int init_oled(struct OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr);
+
 #endif  //_JM_ssd1306_H_

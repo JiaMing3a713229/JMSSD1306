@@ -285,58 +285,76 @@ const unsigned char temperature_icon[] = {
 
 
 
-static esp_err_t OLED_WR_Byte(SSD1306_t *self, uint8_t data, uint8_t isCmd){
-    
+/**
+ * @brief Write command or data to SSD1306 register(D/C#) over I2C.
+ *
+ * @param self Pointer to the SSD1306 structure.
+ * @param data The byte of data or command to be written.
+ * @param data_cmd_bit Set to 1 if writing data (GGDRAM), 0 if writing command to the command register.
+ *
+ * @return
+ *     - ESP_OK: Write operation successful.
+ *     - ESP_FAIL: Invalid SSD1306 pointer provided.
+ *     - Other error codes: See ESP-IDF documentation for I2C master library.
+ *
+ * @note This function sends a command or data byte to the SSD1306 display controller
+ *       over I2C communication. The data_cmd_bit determines whether the byte is treated
+ *       as data (0x40) or a command (0x00).
+ */
+static esp_err_t _i2c_write_cmddata_(struct OLED *oled, uint8_t data, uint8_t data_cmd_bit)
+{
+
+    struct SSD1306 *self = (struct SSD1306*)oled->ssd1306;
     if(self == NULL){
         return ESP_FAIL;
     }
-    uint8_t SSD1306_SLAVE_ADDR = self -> ssd1306_slave_addr;
+    
 
-    int ret;
-    uint8_t cam_data = (isCmd == 1) ? (uint8_t)(0x40) : (uint8_t)(0x00);    //0x40 write data GGDRAM ， 0x00 command data to command register
+    int err;
+    uint8_t cam_data = (data_cmd_bit == 1) ? (uint8_t)(0x40) : (uint8_t)(0x00);    //0x40 write data GGDRAM ， 0x00 command data to command register
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, SSD1306_SLAVE_ADDR << 1 | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, (self -> slave_addr) << 1 | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd, cam_data, true);
     i2c_master_write_byte(cmd, data, true);
     i2c_master_stop(cmd);
-    ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-
+    err = i2c_master_cmd_begin(I2C_NUM_0, cmd, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
-    return ret;
+    return err;
+
 }
-
-
-static void set_pos(void *_self, uint8_t x, uint8_t y){
+/* set position(x, y) used to write bytes to GGRAM */
+static void set_pos(struct OLED *self, uint8_t x, uint8_t y)
+{
     
-    SSD1306_t *self = (SSD1306_t *)_self;
-
+    // struct SSD1306 *self = oled->ssd1306;
     if(self == NULL){
         return;
     }
-    OLED_WR_Byte(self, 0xb0 + y, CMD_MODE);
-    OLED_WR_Byte(self, ((x & 0xf0) >> 4) | 0x10, CMD_MODE);
-    OLED_WR_Byte(self, (x & 0x0f), CMD_MODE);
+    _i2c_write_cmddata_(self, 0xb0 + y, CMD_MODE);
+    _i2c_write_cmddata_(self, ((x & 0xf0) >> 4) | 0x10, CMD_MODE);
+    _i2c_write_cmddata_(self, (x & 0x0f), CMD_MODE);
 }
 
-static void clear(void *_self){
-
-    OLED *oled = (OLED *)_self;
-    SSD1306_t *self = oled->ssd1306;
+static void clear(struct OLED *self)
+{
 
     uint8_t i, n;
+    uint8_t buffer[128] = {0};
     for (i = 0; i < 8; i++)
     {
-        OLED_WR_Byte(self, 0xb0 + i, CMD_MODE);
-        OLED_WR_Byte(self, 0x00, CMD_MODE);
-        OLED_WR_Byte(self, 0x10, CMD_MODE);
+        _i2c_write_cmddata_(self, 0xb0 + i, CMD_MODE);
+        _i2c_write_cmddata_(self, 0x00, CMD_MODE);
+        _i2c_write_cmddata_(self, 0x10, CMD_MODE);
         for (n = 0; n < 128; n++)
-            OLED_WR_Byte(self, 0, DATA_MODE);
+            _i2c_write_cmddata_(self, 0, DATA_MODE);
     }
 
 }
 
-static void showChar(SSD1306_t *self, uint8_t x, uint8_t y, uint8_t chr, uint8_t Char_Size){
+static void showChar(struct OLED *self, uint8_t x, uint8_t y, uint8_t chr, uint8_t Char_Size)
+{
+
     uint8_t c = 0;
     uint8_t i = 0;
     c = chr - ' ';
@@ -349,23 +367,21 @@ static void showChar(SSD1306_t *self, uint8_t x, uint8_t y, uint8_t chr, uint8_t
     {
         set_pos(self, x, y);
         for (i = 0; i < 8; i++)
-            OLED_WR_Byte(self, F8X16[c * 16 + i], DATA_MODE);
+            _i2c_write_cmddata_(self, F8X16[c * 16 + i], DATA_MODE);
         set_pos(self, x, y + 1);
         for (i = 0; i < 8; i++)
-            OLED_WR_Byte(self, F8X16[c * 16 + i + 8], DATA_MODE);
+            _i2c_write_cmddata_(self, F8X16[c * 16 + i + 8], DATA_MODE);
     }
     else     //FONT_SIZE_F6x8
     {
         set_pos(self, x, y);
         for (i = 0; i < 6; i++)
-            OLED_WR_Byte(self, F6x8[c][i], DATA_MODE);
+            _i2c_write_cmddata_(self, F6x8[c][i], DATA_MODE);
     }
 }
 
-static void print(void *_self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size){
-
-    OLED *oled = (OLED *)_self;
-    SSD1306_t *self = oled->ssd1306;
+static void print(struct OLED *self, uint8_t x, uint8_t y, const char* msg, uint8_t font_size)
+{
 
     if((self == NULL) || (msg == NULL)){
         return;
@@ -388,10 +404,9 @@ static void print(void *_self, uint8_t x, uint8_t y, const char* msg, uint8_t fo
     }
 }
 
-static void drawLogo(void *_self){
-
-    OLED *oled = (OLED *)_self;
-    SSD1306_t *self = oled->ssd1306;
+static void drawLogo(struct OLED *self)
+{
+    
     uint8_t x = 0;
     uint8_t y = 0;
 
@@ -399,83 +414,94 @@ static void drawLogo(void *_self){
         set_pos(self, x, y + i);
         for(int j = 0; j < 128; ++j){
 
-            OLED_WR_Byte(self, JM_LOGO[128 * i + j], DATA_MODE);
+            _i2c_write_cmddata_(self, JM_LOGO[128 * i + j], DATA_MODE);
 
         }
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
     }
+
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
     
 }
 
-static void close(void *self){
-    OLED *oled = (OLED *)self;
-    free(oled->ssd1306);
-    free(oled);
+static void close(struct OLED *self){
+
+    if(self != NULL){
+        free(self->ssd1306);
+        free(self);
+    } 
+
 }
 
-static void display_info(void *_self){
+static void display_info(struct OLED *self)
+{
+
+    // struct ssd1306_t *ssd1306 = self->ssd1306;
+    if(self == NULL){
+        return;
+    }
 
     char buffer[50];
-    OLED *oled = (OLED *)_self;
-    print(oled, 0, 0, "(0,0)", 0);
-    print(oled, 0, 1, "(0,1)", 0);
-    print(oled, 0, 2, "(0,2)", 0);
-    print(oled, 0, 3, "(0,3)", 0);
-    print(oled, 0, 4, "(0,4)", 0);
-    print(oled, 0, 5, "(0,5)", 0);
-    print(oled, 0, 6, "(0,6)", 0);
-    print(oled, 0, 7, "(0,7)", 0);
+    print(self, 0, 0, "(0,0)", 0);
+    print(self, 0, 1, "(0,1)", 0);
+    print(self, 0, 2, "(0,2)", 0);
+    print(self, 0, 3, "(0,3)", 0);
+    print(self, 0, 4, "(0,4)", 0);
+    print(self, 0, 5, "(0,5)", 0);
+    print(self, 0, 6, "(0,6)", 0);
+    print(self, 0, 7, "(0,7)", 0);
     vTaskDelay(3000 / portTICK_PERIOD_MS);
     
-    clear(oled);
+    clear(self);
     
-    SSD1306_t *self = oled->ssd1306;
-    for(uint8_t i = 0; i < 128; ++i){
-
-        set_pos(self, i, 2);
-        OLED_WR_Byte(self, 0xff, DATA_MODE);
-        // print(oled, i, 1, "|", 0);
-        snprintf(buffer, sizeof(buffer), " position: (%d, 2)", i);
-        print(oled, 3, 5, buffer, 0);
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-        
+    
+    for(int i = 0; i < 7; ++i){
+        for(uint8_t j = 0; j < 128; ++j){
+        set_pos(self, j, i);
+        _i2c_write_cmddata_(self, 0xff, DATA_MODE);
+        snprintf(buffer, sizeof(buffer), " position: (%3d, %2d)", j, i);
+        vTaskDelay(5 / portTICK_PERIOD_MS);
+        print(self, 3, 7, buffer, 0);
+        vTaskDelay(5 / portTICK_PERIOD_MS);
+        }
     }
-    
+
+    drawLogo(self);
 
 }
 
-static void ssd_init(SSD1306_t *self){
+static void ssd_init(struct OLED *self){
 
-    OLED_WR_Byte(self, SSD1306_DISPLAYOFF, CMD_MODE);          ///< Set Display ON
-    OLED_WR_Byte(self, SSD1306_SETDISPLAYCLOCKDIV, CMD_MODE);  ///< Set Display Clock Divide Ratio
-    OLED_WR_Byte(self, 0x80, CMD_MODE);                        ///< set clock divide ratio 
-    OLED_WR_Byte(self, SSD1306_SETMULTIPLEX, CMD_MODE);        ///< Set Multiplex Ratio (A8h)
-    OLED_WR_Byte(self, 0x3f, CMD_MODE);                        ///< Set multiplex ratio
-    OLED_WR_Byte(self, SSD1306_SETDISPLAYOFFSET, CMD_MODE);    ///< Set Display Offset
-    OLED_WR_Byte(self, 0x00, CMD_MODE);                        ///< Set data of display Offset is 0             
-    OLED_WR_Byte(self, SSD1306_SETSTARTLINE, CMD_MODE);        ///< Set Display Start Line
-    OLED_WR_Byte(self, SSD1306_CHARGE_PUMP, CMD_MODE);                        ///< Charge Pump Setting                    
-    OLED_WR_Byte(self, 0x14, CMD_MODE);                        ///< Enable Charge Pump  
-    OLED_WR_Byte(self, SSD1306_MEMORYMODE, CMD_MODE);          ///< Set Memory Addressing Mode (20h) 
-    OLED_WR_Byte(self, 0x00, CMD_MODE);                        ///< Set Memory Addressing Mode (20h) is horizontal addressing mode
-    OLED_WR_Byte(self, 0xa1, CMD_MODE);                        ///< Column address 127 is mapped to SEG0
-    OLED_WR_Byte(self, 0xc8, CMD_MODE);                        ///< Remapped mode. Scan from COM[N-1] to COM0 
-    OLED_WR_Byte(self, SSD1306_SETCOMPINS, CMD_MODE);          ///< Set COM Pins Hardware Configuration 
-    OLED_WR_Byte(self, 0x12, CMD_MODE);                        ///< Alternative COM pin configuration (DAh A[4] =1) COM output Scan direction: from COM0 to COM63 (C0h)Disable COM Left/Right remap (DAh A[5] =0)
-    OLED_WR_Byte(self, SSD1306_SETCONTRAST, CMD_MODE);         ///< Set Contrast Control
-    OLED_WR_Byte(self, 0xef, CMD_MODE);                        ///< Display Contrast is 0xef
-    OLED_WR_Byte(self, SSD1306_SETPRECHARGE, CMD_MODE);        ///< Set Pre-charge Period
-    OLED_WR_Byte(self, 0xF1, CMD_MODE); 
-    OLED_WR_Byte(self, SSD1306_SETVCOMDETECT, CMD_MODE);       ///< This command adjusts the VCOMH regulator output.
-    OLED_WR_Byte(self, SSD1306_SETSTARTLINE, CMD_MODE);                        ///< Set Display Start Line 
-    OLED_WR_Byte(self, SSD1306_DISPLAYON, CMD_MODE);  
+    _i2c_write_cmddata_(self, SSD1306_DISPLAYOFF, CMD_MODE);          ///< Set Display ON
+    _i2c_write_cmddata_(self, SSD1306_SETDISPLAYCLOCKDIV, CMD_MODE);  ///< Set Display Clock Divide Ratio
+    _i2c_write_cmddata_(self, 0x80, CMD_MODE);                        ///< set clock divide ratio 
+    _i2c_write_cmddata_(self, SSD1306_SETMULTIPLEX, CMD_MODE);        ///< Set Multiplex Ratio (A8h)
+    _i2c_write_cmddata_(self, 0x3f, CMD_MODE);                        ///< Set multiplex ratio
+    _i2c_write_cmddata_(self, SSD1306_SETDISPLAYOFFSET, CMD_MODE);    ///< Set Display Offset
+    _i2c_write_cmddata_(self, 0x00, CMD_MODE);                        ///< Set data of display Offset is 0             
+    _i2c_write_cmddata_(self, SSD1306_SETSTARTLINE, CMD_MODE);        ///< Set Display Start Line
+    _i2c_write_cmddata_(self, SSD1306_CHARGE_PUMP, CMD_MODE);         ///< Charge Pump Setting                    
+    _i2c_write_cmddata_(self, 0x14, CMD_MODE);                        ///< Enable Charge Pump  
+    _i2c_write_cmddata_(self, SSD1306_MEMORYMODE, CMD_MODE);          ///< Set Memory Addressing Mode (20h) 
+    _i2c_write_cmddata_(self, 0x00, CMD_MODE);                        ///< Set Memory Addressing Mode (20h) is horizontal addressing mode
+    _i2c_write_cmddata_(self, 0xa1, CMD_MODE);                        ///< Column address 127 is mapped to SEG0
+    _i2c_write_cmddata_(self, 0xc8, CMD_MODE);                        ///< Remapped mode. Scan from COM[N-1] to COM0 
+    _i2c_write_cmddata_(self, SSD1306_SETCOMPINS, CMD_MODE);          ///< Set COM Pins Hardware Configuration 
+    _i2c_write_cmddata_(self, 0x12, CMD_MODE);                        ///< Alternative COM pin configuration (DAh A[4] =1) COM output Scan direction: from COM0 to COM63 (C0h)Disable COM Left/Right remap (DAh A[5] =0)
+    _i2c_write_cmddata_(self, SSD1306_SETCONTRAST, CMD_MODE);         ///< Set Contrast Control
+    _i2c_write_cmddata_(self, 0xfa, CMD_MODE);                        ///< Display Contrast is 0xef
+    _i2c_write_cmddata_(self, SSD1306_SETPRECHARGE, CMD_MODE);        ///< Set Pre-charge Period
+    _i2c_write_cmddata_(self, 0xF1, CMD_MODE); 
+    _i2c_write_cmddata_(self, SSD1306_SETVCOMDETECT, CMD_MODE);       ///< This command adjusts the VCOMH regulator output.
+    _i2c_write_cmddata_(self, SSD1306_SETSTARTLINE, CMD_MODE);        ///< Set Display Start Line 
+    _i2c_write_cmddata_(self, SSD1306_DISPLAYON, CMD_MODE);  
                           ///< Display On
 }
 
 
-int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
+int init_oled(struct OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
 
-    SSD1306_t *ssd1306 = (SSD1306_t*)malloc(sizeof(SSD1306_t));
+    struct SSD1306 *ssd1306 = (struct SSD1306*)malloc(sizeof(struct SSD1306));
     
     
     if(ssd1306 == NULL){
@@ -484,7 +510,7 @@ int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
 
     ssd1306->sda_io_num = SDA_PIN;
     ssd1306->scl_io_num= SCL_PIN;
-    ssd1306->ssd1306_slave_addr = ssd1306_slave_addr;
+    ssd1306->slave_addr = ssd1306_slave_addr;
     // printf("address ssd1306 %p \r\n", ssd1306);
     //Set up the PINs for SDA and SCL, then enable the I2C interface
     
@@ -492,17 +518,23 @@ int init_oled(OLED *self, int SDA_PIN, int SCL_PIN, uint8_t ssd1306_slave_addr){
     vTaskDelay(100);
 
     //initialize OLED struct 
-    // OLED* oled = (OLED*)malloc(sizeof(OLED));
 
     self->ssd1306 = ssd1306;
-    self->set_pos = set_pos;
-    self->print = print;
-    self->clear = clear;
-    self->drawLogo = drawLogo;
-    self->close = close;
-    self->display_info = display_info;
+    // self->set_pos = set_pos;
+    // self->print = print;
+    // self->clear = clear;
+    // self->drawLogo = drawLogo;
+    // self->close = close;
+    // self->display_info = display_info;
 
-    ssd_init(self -> ssd1306);
+    self-> print = print;
+    self-> display_info = display_info;
+    self-> clear = clear;
+    self-> close = close;
+
+    ssd_init(self);
+
+    clear(self);
 
     return ESP_OK;
 
