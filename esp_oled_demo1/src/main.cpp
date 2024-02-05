@@ -49,20 +49,20 @@ static esp_err_t init_i2c(void){
 void displayTask(void *pvParameter){
 
   vTaskDelay(100 / portTICK_PERIOD_MS);
-  oled.drawLogo(&oled);
+  oled.display_info(&oled);
   oled.clear(&oled);
   int count = 0;
   char buffer[50];
-  oled.display_info(&oled);
-  vTaskDelay(5000 / portTICK_PERIOD_MS);
-  oled.clear(&oled);
+  
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  
 
   while(1){
 
     snprintf(buffer, sizeof(buffer), " Count: %d", count);
     oled.print(&oled, 1, 1, buffer, 0);
     count++;
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
 
   }
 }
@@ -86,6 +86,7 @@ void setup() {
 
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
+  Serial.printf("start oled task \r\n");
   //建立並初始化顯示工作的Threads
   xTaskCreate(displayTask, "TaskforDisplay", 1024 * 2, NULL, 1, NULL);
 
