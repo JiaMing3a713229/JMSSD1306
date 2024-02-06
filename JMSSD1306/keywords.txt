@@ -1,5 +1,5 @@
 #######################################
-# Syntax Coloring Map For DFRobot_SHT20
+# Syntax Coloring Map For JMSSD1306_H
 #######################################
 
 #######################################
@@ -12,7 +12,12 @@ OLED	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
-set_pos	KEYWORD2
-print	KEYWORD2
-clear	KEYWORD2
-drawLogo	KEYWORD2
+init_oled	KEYWORD2
+print		KEYWORD2
+clear		KEYWORD2
+display_info	KEYWORD2
+close		KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################

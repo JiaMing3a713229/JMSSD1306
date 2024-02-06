@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 extern "C"{
   #include "JM_SSD1306.h"
+  #include "JM_AHT20.h"
 }
 #endif
 
@@ -11,7 +12,10 @@ extern "C"{
 #define SDA_PIN 21
 #define SCL_PIN 22
 
+#define AHT20_ADDRESS 0x38  // AHT20 I2C 位址
+
 OLED oled;
+AHT20 aht20;
 
 static esp_err_t i2c_master_init(int sda_io_num, int scl_io_num){
 
@@ -49,19 +53,22 @@ static esp_err_t init_i2c(void){
 void displayTask(void *pvParameter){
 
   vTaskDelay(100 / portTICK_PERIOD_MS);
-  oled.display_info(&oled);
-  oled.clear(&oled);
-  int count = 0;
-  char buffer[50];
-  
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  // oled.display_info(&oled);
+  // oled.clear(&oled);
+  init_aht20(&aht20, AHT20_ADDRESS);
+  char t_buffer[50];
+  char h_buffer[50];
+  vTaskDelay(500 / portTICK_PERIOD_MS);
   
 
   while(1){
 
-    snprintf(buffer, sizeof(buffer), " Count: %d", count);
-    oled.print(&oled, 1, 1, buffer, 0);
-    count++;
+
+    snprintf(t_buffer, sizeof(t_buffer), " T: %.2f", aht20.get_temperature(&aht20));
+    snprintf(h_buffer, sizeof(h_buffer), " H: %.2f", aht20.get_humidity(&aht20));
+    printf("%s , %s \n", t_buffer, h_buffer);
+
+    // oled.print(&oled, 1, 1, buffer, 0);
     vTaskDelay(500 / portTICK_PERIOD_MS);
 
   }
@@ -88,7 +95,7 @@ void setup() {
 
   Serial.printf("start oled task \r\n");
   //建立並初始化顯示工作的Threads
-  xTaskCreate(displayTask, "TaskforDisplay", 1024 * 2, NULL, 1, NULL);
+  xTaskCreate(displayTask, "TaskforDisplay", 1024 * 4, NULL, 1, NULL);
 
 }
 
